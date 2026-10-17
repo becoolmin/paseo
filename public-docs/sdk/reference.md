@@ -130,6 +130,7 @@ See [events](./events.md#follow-provider-catalog-changes) for explicit event obs
 | `create(options)`        | `PaseoWorkspaceHandle`        | Always creates a fresh directory-backed or Paseo-worktree workspace.                           |
 | `ref(workspaceOrId)`     | `PaseoWorkspaceHandle`        | Creates a local handle.                                                                        |
 | `archive(workspaceOrId)` | `PaseoWorkspaceArchiveResult` | Archives without first creating a handle.                                                      |
+| `clearAttention(ids)`    | `Promise<void>`               | Acknowledges attention for one or several workspace IDs without archiving them.                |
 | `subscribe(handler)`     | Unsubscribe function          | Local listener for this API instance. Requires an owned `list({ subscribe: {} })` observation. |
 
 A workspace handle exposes `id`, `projectId`, `directory`, `name`, `status`, `current()`, `refresh()`, `setTitle(title)`, `archive()`, and `subscribe()`. Pass `null` to `setTitle` to restore the derived workspace name. Use `workspace.agents.create(options)` to create an agent without repeating the workspace ID or directory.

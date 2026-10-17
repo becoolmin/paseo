@@ -25,6 +25,7 @@ import {
   type PluginScreenProps,
   type PluginScreenTitle,
   type PluginSidebarItemContribution,
+  type PluginReadyToReviewActionContribution,
   type PluginSurfaceProps,
   type PluginTimelineRendererContribution,
   type PluginTimelineTransformerContribution,
@@ -112,6 +113,7 @@ export function runPluginClientBundle(
     surfaces: [],
     settingsScreens: [],
     sidebarItems: { header: [], footer: [] },
+    readyToReviewActions: [],
     legacySidebarItems: [],
     workspacePanels: [],
     commandCenterItems: [],
@@ -127,6 +129,9 @@ export function runPluginClientBundle(
     header: new Set(),
     footer: new Set(),
   };
+  const readyToReviewActionIds = new Set<string>();
+  const readyToReviewActions: PluginReadyToReviewActionContribution[] = [];
+  collector.readyToReviewActions = readyToReviewActions;
   const workspacePanelIds = new Set<string>();
   const commandCenterItemIds = new Set<string>();
   const clientSlashCommandNames = new Set<string>();
@@ -227,6 +232,21 @@ export function runPluginClientBundle(
     },
     addSidebarFooterItem(contribution: PluginSidebarItemContribution) {
       return addSidebarItem("footer", contribution);
+    },
+    addReadyToReviewAction(contribution: PluginReadyToReviewActionContribution) {
+      const actionId = requireId(contribution.id, "Ready to review action id");
+      if (readyToReviewActionIds.has(actionId)) {
+        throw new Error(`Duplicate Ready to review action: ${actionId}`);
+      }
+      const title = contribution.title.trim();
+      if (!title) throw new Error(`Ready to review action ${actionId} has no title`);
+      if (typeof contribution.onPress !== "function") {
+        throw new Error(`Ready to review action ${actionId} has no handler`);
+      }
+      readyToReviewActionIds.add(actionId);
+      return register(readyToReviewActions, { ...contribution, id: actionId, title }, () =>
+        readyToReviewActionIds.delete(actionId),
+      );
     },
     // COMPAT(pluginSidebarAliases): added in v0.11.0, remove after 2027-03-29
     // Titled by its id; a legacy item pointing at it lends the header its own title instead.
@@ -514,6 +534,7 @@ export function runPluginClientBundle(
     surfaces: collector.surfaces,
     settingsScreens: collector.settingsScreens,
     sidebarItems: collector.sidebarItems,
+    readyToReviewActions,
     legacySidebarItems: collector.legacySidebarItems,
     workspacePanels: collector.workspacePanels as EvaluatedPlugin["workspacePanels"],
     commandCenterItems: collector.commandCenterItems,

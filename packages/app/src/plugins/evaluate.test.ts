@@ -210,6 +210,41 @@ describe("evaluatePluginClientBundle", () => {
     expect(plugin.legacySidebarItems).toEqual([]);
   });
 
+  it("registers and cleans up a Ready to review header action", async () => {
+    const plugin = evaluatePluginClientBundle(
+      "mark-read",
+      bundle(`
+        plugin.addReadyToReviewAction({
+          id: "mark-all-read",
+          title: " Mark all as read ",
+          onPress(ids) { globalThis.__readyToReviewTestIds = ids; },
+        });
+      `),
+    );
+    const [action] = plugin.readyToReviewActions ?? [];
+    expect(action?.title).toBe("Mark all as read");
+    await action?.onPress(["workspace-a", "workspace-b"]);
+    expect(Reflect.get(globalThis, "__readyToReviewTestIds")).toEqual([
+      "workspace-a",
+      "workspace-b",
+    ]);
+    await plugin.cleanup();
+    expect(plugin.readyToReviewActions).toEqual([]);
+    Reflect.deleteProperty(globalThis, "__readyToReviewTestIds");
+  });
+
+  it("rejects duplicate Ready to review header actions", () => {
+    expect(() =>
+      evaluatePluginClientBundle(
+        "mark-read",
+        bundle(`
+          plugin.addReadyToReviewAction({ id: "read", title: "Read", onPress() {} });
+          plugin.addReadyToReviewAction({ id: "read", title: "Again", onPress() {} });
+        `),
+      ),
+    ).toThrow("Duplicate Ready to review action: read");
+  });
+
   it.each([
     [`plugin.addScreen("main", Screen);`, "addScreen takes { id, title, Component }"],
     [`plugin.addScreen({ id: "main", Component: Screen });`, "Screen main needs a title"],

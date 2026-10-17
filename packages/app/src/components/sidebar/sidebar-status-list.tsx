@@ -36,6 +36,7 @@ import {
   ChevronRight,
   CircleAlert,
   CircleCheck,
+  CheckCheck,
   CircleDot,
   CircleX,
 } from "lucide-react-native";
@@ -80,6 +81,7 @@ import type { ToggleSidebarWorkspacePin } from "@/hooks/use-sidebar-workspace-pi
 import { DraggableList, type DraggableRenderItemInfo } from "@/components/draggable-list";
 import type { DraggableListDragHandleProps } from "@/components/draggable-list.types";
 import { useLongPressDragInteraction } from "@/components/sidebar/use-long-press-drag-interaction";
+import { useInstalledPlugins } from "@/plugins/registry";
 
 // Themed icon wrappers
 const foregroundMutedColorMapping = (theme: Theme) => ({
@@ -104,6 +106,7 @@ const ThemedChevronDown = withUnistyles(ChevronDown);
 const ThemedChevronRight = withUnistyles(ChevronRight);
 const ThemedCircleAlert = withUnistyles(CircleAlert);
 const ThemedCircleCheck = withUnistyles(CircleCheck);
+const ThemedCheckCheck = withUnistyles(CheckCheck);
 const ThemedCircleDot = withUnistyles(CircleDot);
 const ThemedCircleX = withUnistyles(CircleX);
 const EMPTY_SHORTCUT_INDEX = new Map<string, number>();
@@ -410,6 +413,32 @@ function StatusGroupHeader({
 }) {
   const { t } = useTranslation();
   const [isHovered, setIsHovered] = useState(false);
+  const [isClearing, setIsClearing] = useState(false);
+  const installedPlugins = useInstalledPlugins();
+  const toast = useToast();
+  const readyActionTargets = useMemo(() => {
+    if (group.leading.bucket !== "attention" || group.rows.length === 0) return null;
+    const requiredHosts = [...new Set(group.rows.map((row) => row.serverId))];
+    const candidates = installedPlugins.flatMap((plugin) =>
+      (plugin.readyToReviewActions ?? []).map((action) => ({ plugin, action })),
+    );
+    // One action per host, from the same plugin and registration, or no button:
+    // a partially installed plugin must not imply it will clear every host.
+    for (const candidate of candidates) {
+      const targets = requiredHosts.map((serverId) =>
+        candidates.find(
+          (item) =>
+            item.plugin.serverId === serverId &&
+            item.plugin.id === candidate.plugin.id &&
+            item.action.id === candidate.action.id,
+        ),
+      );
+      if (targets.every((target) => target !== undefined)) {
+        return targets.filter((target) => target !== undefined);
+      }
+    }
+    return null;
+  }, [group.leading.bucket, group.rows, installedPlugins]);
   const toggleWorkspaceGroupCollapsed = useSidebarCollapsedSectionsStore(
     (state) => state.toggleWorkspaceGroupCollapsed,
   );
@@ -418,15 +447,50 @@ function StatusGroupHeader({
   }, [group.key, toggleWorkspaceGroupCollapsed]);
   const handleHoverIn = useCallback(() => setIsHovered(true), []);
   const handleHoverOut = useCallback(() => setIsHovered(false), []);
+  const handleMarkAllRead = useCallback(async () => {
+    if (!readyActionTargets || isClearing) return;
+    setIsClearing(true);
+    try {
+      const results = await Promise.allSettled(
+        readyActionTargets.map(({ plugin, action }) =>
+          action.onPress(
+            group.rows
+              .filter((row) => row.serverId === plugin.serverId && row.statusBucket === "attention")
+              .map((row) => row.workspaceId),
+          ),
+        ),
+      );
+      const failures = results.filter((result) => result.status === "rejected");
+      if (failures.length) {
+        const first = failures[0];
+        toast.error(
+          first.status === "rejected" && first.reason instanceof Error
+            ? first.reason.message
+            : "Could not mark every workspace as read",
+        );
+      }
+    } finally {
+      setIsClearing(false);
+    }
+  }, [group.rows, isClearing, readyActionTargets, toast]);
   const rowStyle = useCallback(
     ({ pressed }: PressableStateCallbackType) => [
       styles.statusGroupRow,
+      readyActionTargets && styles.statusGroupRowWithTrailingAction,
       isHovered && styles.statusGroupRowHovered,
       pressed && styles.statusGroupRowPressed,
     ],
-    [isHovered],
+    [isHovered, readyActionTargets],
   );
   const accessibilityState = useMemo(() => ({ expanded: !collapsed }), [collapsed]);
+  const actionAccessibilityState = useMemo(() => ({ disabled: isClearing }), [isClearing]);
+  const actionStyle = useCallback(
+    ({ pressed }: PressableStateCallbackType) => [
+      styles.statusGroupTrailingAction,
+      pressed && styles.statusGroupRowPressed,
+    ],
+    [],
+  );
 
   return (
     <View onPointerEnter={handleHoverIn} onPointerLeave={handleHoverOut}>
@@ -453,6 +517,19 @@ function StatusGroupHeader({
           </View>
         </View>
       </Pressable>
+      {readyActionTargets ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={readyActionTargets[0]?.action.title ?? "Mark all as read"}
+          accessibilityState={actionAccessibilityState}
+          disabled={isClearing}
+          style={actionStyle}
+          onPress={handleMarkAllRead}
+          testID="sidebar-ready-to-review-mark-all-read"
+        >
+          <ThemedCheckCheck size={16} uniProps={foregroundMutedColorMapping} />
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -1068,6 +1145,19 @@ const styles = StyleSheet.create((theme) => ({
     justifyContent: "space-between",
     gap: theme.spacing[2],
     userSelect: "none",
+  },
+  statusGroupRowWithTrailingAction: {
+    paddingRight: 42,
+  },
+  statusGroupTrailingAction: {
+    position: "absolute",
+    top: 4,
+    right: 8,
+    width: 28,
+    height: 28,
+    borderRadius: theme.borderRadius.md,
+    alignItems: "center",
+    justifyContent: "center",
   },
   statusGroupRowHovered: {
     backgroundColor: theme.colors.surfaceSidebarHover,

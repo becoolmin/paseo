@@ -215,6 +215,8 @@ export interface PaseoWorkspaceActions {
     workspace: string | PaseoWorkspaceHandle,
     requestId?: string,
   ): Promise<PaseoWorkspaceArchiveResult>;
+  /** Acknowledge attention on one or more workspaces without archiving them. */
+  clearAttention(workspaceIds: string | string[]): Promise<void>;
   /**
    * Local event subscription over the low-level driver's workspace_update stream.
    * The returned function only removes this SDK listener.
@@ -705,6 +707,7 @@ export function createPaseoApi(
     },
     workspaces: {
       list: listWorkspaces,
+      clearAttention: (workspaceIds) => daemonClient.clearWorkspaceAttention(workspaceIds),
       ref: (workspace) => createWorkspaceHandle(workspace),
       open: (input, requestId) =>
         openWorkspace(daemonClient, createWorkspaceHandle, input, requestId),

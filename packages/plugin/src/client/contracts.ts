@@ -87,6 +87,14 @@ export interface PluginSidebarItemContribution {
   Component: ComponentType<PluginSidebarItemProps>;
 }
 
+/** A check-all action placed beside the sidebar's Ready to review status header. */
+export interface PluginReadyToReviewActionContribution {
+  id: string;
+  title: string;
+  /** IDs are scoped to this plugin installation's host. */
+  onPress(workspaceIds: readonly string[]): void | Promise<void>;
+}
+
 export interface PluginIconProps {
   name: string;
   size?: number;
@@ -137,6 +145,7 @@ export interface PluginClientContext extends PluginCommandCapabilities, PluginCl
   addScreen(contribution: PluginScreenContribution): PluginCleanup;
   addSidebarHeaderItem(contribution: PluginSidebarItemContribution): PluginCleanup;
   addSidebarFooterItem(contribution: PluginSidebarItemContribution): PluginCleanup;
+  addReadyToReviewAction(contribution: PluginReadyToReviewActionContribution): PluginCleanup;
   addWorkspacePanel(contribution: PluginWorkspacePanelContribution): PluginCleanup;
   addCommandCenterItem(contribution: PluginCommandCenterItemContribution): PluginCleanup;
   addSlashCommand(contribution: PluginClientSlashCommandContribution): PluginCleanup;

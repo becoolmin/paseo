@@ -12,6 +12,7 @@ import type {
   PluginComposerPillContribution,
   PluginSidebarContribution,
   PluginSidebarItemContribution,
+  PluginReadyToReviewActionContribution,
   PluginScreenContribution,
   PluginSettingsScreenContribution,
   PluginTimelineRendererContribution,
@@ -32,6 +33,7 @@ export interface EvaluatedPlugin {
   surfaces: PluginScreenContribution[];
   settingsScreens: PluginSettingsScreenContribution[];
   sidebarItems: Record<PluginSidebarSection, PluginSidebarItemContribution[]>;
+  readyToReviewActions?: PluginReadyToReviewActionContribution[];
   // COMPAT(pluginSidebarAliases): added in v0.11.0, remove after 2027-03-29
   /** `addSidebarItem` registrations, so `/plugin/<id>/sidebar/<item>` routes keep resolving. */
   legacySidebarItems: PluginSidebarContribution[];

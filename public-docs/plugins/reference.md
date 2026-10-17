@@ -940,6 +940,16 @@ screen with other params shows the new params.
 
 ### Sidebar items
 
+`addReadyToReviewAction({ id, title, onPress })` registers an icon button beside the
+**Ready to review** status heading. The host displays it only when all hosts represented in
+that section have an action with the same plugin and action ID. When pressed, `onPress`
+receives the IDs of the attention workspaces belonging to this plugin installation's host.
+The handler can acknowledge these workspaces with `client.paseo.workspaces.clearAttention(ids)`.
+Paseo leaves Working, Needs input, and Failed workspace groups untouched.
+
+The registration returns a cleanup function. Plugin teardown removes the icon, and
+pending actions keep the button disabled. The plugin is responsible for any action errors.
+
 `addSidebarHeaderItem` adds a row to the list at the top of the sidebar. `addSidebarFooterItem`
 adds a row to the footer, between **Add project** and the footer's icon row. The icon row is fixed;
 plugins can't add to it. Both take `{ id, title, Component }`. `title` labels the item in
